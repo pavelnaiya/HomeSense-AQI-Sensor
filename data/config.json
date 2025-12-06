@@ -1,0 +1,6 @@
+{
+  "upload_interval_ms": 30000,
+  "api_endpoint": "https://home-sense.vercel.app/api/aqi",
+  "device_name": "HomeSense AQI Monitor",
+  "timezone": "Asia/Kolkata"
+}
