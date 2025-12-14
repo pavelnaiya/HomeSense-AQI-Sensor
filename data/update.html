@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>OTA Update</title>
+    <link rel="stylesheet" href="/style.css">
+
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>System Update</h1>
+                <p class="subtitle">Upload new firmware.bin</p>
+            </div>
+
+            <form method='POST' action='/update' enctype='multipart/form-data' id="uploadForm">
+                <div class="file-upload-area">
+                    <input type='file' name='update' accept='.bin' required>
+                </div>
+                
+                <div class="progress-bar" id="progress">
+                    <div class="progress-fill" id="fill"></div>
+                </div>
+
+                <button type="submit" class="btn-submit">
+                    <span class="btn-text">Update Firmware</span>
+                </button>
+            </form>
+            
+            <div style="margin-top: 1rem; text-align: center;">
+                <a href="/" style="color: #9ca3af; text-decoration: none;">&larr; Back to Home</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Simple script to show "Uploading..." state (Progress bar requires JS-based upload which is complex for basic ESP32 OTA, 
+         so we'll just show a indeterminate state for now) -->
+    <script src="/script.js"></script>
+</body>
+</html>

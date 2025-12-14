@@ -558,3 +558,148 @@ input:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
+
+/* ==========================================
+   Dashboard Styles (index.html)
+   ========================================== */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+}
+
+.data-card {
+    background: rgba(255, 255, 255, 0.05); /* Assuming dark mode context from previous files, might need adjustment if light mode is default */
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid rgba(0, 0, 0, 0.1); 
+    /* Adjusted border color for light mode compatibility if needed, using var(--border) is better */
+    background: var(--bg-primary); 
+    border: 1px solid var(--border-light);
+    box-shadow: var(--shadow-sm);
+}
+
+.data-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin: 0.5rem 0;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.data-label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+    text-decoration: none;
+    transition: all var(--transition);
+    border: 1.5px solid var(--border);
+    font-weight: 500;
+}
+
+.btn-secondary:hover {
+    background: var(--bg-secondary);
+    border-color: var(--text-muted);
+}
+
+.text-center {
+    text-align: center;
+}
+
+.mt-2 { margin-top: 2rem; }
+.mt-1 { margin-top: 1rem; }
+
+.link-subtle {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    text-decoration: none;
+}
+.link-subtle:hover {
+    color: var(--accent);
+}
+
+.link-highlight {
+    color: var(--accent);
+    text-decoration: none;
+}
+.link-highlight:hover {
+    text-decoration: underline;
+}
+
+
+/* ==========================================
+   Update Page Styles (update.html)
+   ========================================== */
+
+.file-upload-area {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    text-align: center;
+    margin: 2rem 0;
+    transition: border-color 0.2s;
+    background: var(--bg-secondary);
+}
+
+.file-upload-area:hover {
+    border-color: var(--accent);
+}
+
+input[type="file"] {
+    display: block;
+    margin: 0 auto;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+}
+
+input[type="file"]::file-selector-button {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1.5px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-right: 12px;
+    transition: all var(--transition);
+}
+
+input[type="file"]::file-selector-button:hover {
+    border-color: var(--text-muted);
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--border-light);
+    border-radius: 3px;
+    margin-top: 1rem;
+    overflow: hidden;
+    display: none;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.2s;
+}

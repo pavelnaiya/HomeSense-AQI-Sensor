@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeSense Device</title>
+    <link rel="stylesheet" href="/style.css">
+
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>Device Control</h1>
+                <p class="subtitle">Local Status & Maintenance</p>
+            </div>
+
+            <!-- Live Data Preview -->
+            <div class="dashboard-grid">
+                <div class="data-card">
+                    <div class="data-label">PM2.5</div>
+                    <div class="data-value" id="pm25">--</div>
+                    <div class="data-unit">µg/m³</div>
+                </div>
+                <div class="data-card">
+                    <div class="data-label">AQI</div>
+                    <div class="data-value" id="aqi">--</div>
+                    <div class="data-unit">Score</div>
+                </div>
+            </div>
+
+            <!-- Maintenance Actions -->
+            <div class="action-buttons">
+                <!-- Note: WiFi config is typically done in AP mode, but we link here just in case -->
+                <a href="/update.html" class="btn-secondary">
+                    📦 Firmware Update
+                </a>
+                <a href="/setup.html" class="btn-secondary">
+                    ⚙️ WiFi Setup
+                </a>
+            </div>
+            
+            <div style="margin-top: 2rem; text-align: center;">
+                <p style="color: #6b7280; font-size: 0.8rem;">
+                    View full history at <a href="https://home-sense.vercel.app" style="color: #60a5fa;">home-sense.vercel.app</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>

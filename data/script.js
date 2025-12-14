@@ -3,32 +3,45 @@
  * Handles WiFi scanning, form validation, and connection feedback
  */
 
-// DOM Elements
-const wifiForm = document.getElementById('wifiForm');
-const ssidInput = document.getElementById('ssid');
-const passwordInput = document.getElementById('password');
-const submitBtn = document.getElementById('submitBtn');
-const scanBtn = document.getElementById('scanBtn');
-const scanLoader = document.getElementById('scanLoader');
-const networkList = document.getElementById('networkList');
-const statusMsg = document.getElementById('status');
-const togglePasswordBtn = document.getElementById('togglePassword');
-
-// State
-let selectedNetwork = null;
 
 /**
- * Initialize event listeners
+ * Initialize logic based on current page
  */
 function init() {
-    // Form submission
-    wifiForm.addEventListener('submit', handleFormSubmit);
+    // Check which page we are on
+    if (document.getElementById('wifiForm')) {
+        initSetupPage();
+    } else if (document.getElementById('pm25')) {
+        initDashboard();
+    } else if (document.getElementById('uploadForm')) {
+        initUpdatePage();
+    }
+}
 
-    // WiFi scan button
-    scanBtn.addEventListener('click', scanNetworks);
+/* ==========================================
+   Setup Page Logic (setup.html)
+   ========================================== */
 
-    // Password toggle
-    togglePasswordBtn.addEventListener('click', togglePasswordVisibility);
+// Global state for setup page
+let selectedNetwork = null;
+let wifiForm, ssidInput, passwordInput, submitBtn, scanBtn, scanLoader, networkList, statusMsg, togglePasswordBtn;
+
+function initSetupPage() {
+    // DOM Elements - Fetch them here to avoid nulls on other pages
+    wifiForm = document.getElementById('wifiForm');
+    ssidInput = document.getElementById('ssid');
+    passwordInput = document.getElementById('password');
+    submitBtn = document.getElementById('submitBtn');
+    scanBtn = document.getElementById('scanBtn');
+    scanLoader = document.getElementById('scanLoader');
+    networkList = document.getElementById('networkList');
+    statusMsg = document.getElementById('status');
+    togglePasswordBtn = document.getElementById('togglePassword');
+
+    // Event Listeners
+    if(wifiForm) wifiForm.addEventListener('submit', handleFormSubmit);
+    if(scanBtn) scanBtn.addEventListener('click', scanNetworks);
+    if(togglePasswordBtn) togglePasswordBtn.addEventListener('click', togglePasswordVisibility);
 
     // Auto-scan on page load
     setTimeout(scanNetworks, 500);
@@ -287,3 +300,64 @@ if (document.readyState === 'loading') {
 } else {
     init();
 }
+
+
+/* ==========================================
+   Dashboard Logic (index.html)
+   ========================================== */
+function initDashboard() {
+    // Only run if elements exist
+    if(document.getElementById('pm25')) {
+        updateData();
+        setInterval(updateData, 5000);
+    }
+}
+
+async function updateData() {
+    try {
+        const res = await fetch('/sensor_data');
+        const data = await res.json();
+        const pm25 = document.getElementById('pm25');
+        const aqi = document.getElementById('aqi');
+        
+        if (pm25) pm25.textContent = data.pm2_5;
+        if (aqi) aqi.textContent = data.aqi;
+        
+    } catch (e) {
+        console.error('Fetch failed', e);
+    }
+}
+
+/* ==========================================
+   Update Page Logic (update.html)
+   ========================================== */
+function initUpdatePage() {
+    const uploadForm = document.getElementById('uploadForm');
+    if (uploadForm) {
+        uploadForm.onsubmit = function() {
+            const btnText = document.querySelector('.btn-text');
+            const btnSubmit = document.querySelector('.btn-submit');
+            
+            if (btnText) btnText.textContent = "Uploading... Please Wait";
+            if (btnSubmit) {
+                btnSubmit.style.opacity = "0.7";
+                btnSubmit.style.pointerEvents = "none";
+                
+                // Show spinner if it exists
+                const loader = btnSubmit.querySelector('.btn-loader');
+                if(!loader) {
+                    // Create loader if it doesn't exist (reusing style from reset page)
+                    const newLoader = document.createElement('div');
+                    newLoader.className = 'btn-loader';
+                    btnSubmit.appendChild(newLoader);
+                    
+                    // Hide check icon
+                    const icon = btnSubmit.querySelector('.btn-icon');
+                    if(icon) icon.style.display = 'none';
+                }
+            }
+        };
+    }
+}
+
+

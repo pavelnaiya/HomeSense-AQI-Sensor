@@ -11,6 +11,7 @@
 #include "web_server.h"
 #include "iaq_calculator.h"
 #include "wifi_manager.h"
+#include "web_updater.h"
 
 // -----------------------------
 // Module Instances
@@ -86,6 +87,11 @@ void setup() {
         
         // Start web server with current WiFi credentials
         web.begin(WiFi.SSID().c_str(), WiFi.psk().c_str());
+        
+        // Initialize OTA Updater
+        WebUpdater::attach(server);
+        Serial.println("✅ OTA Updater Ready at /update");
+        
     } else {
         // AP mode - start config portal
         Serial.println("⚠️ WiFi failed — starting AP mode...");
