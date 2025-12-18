@@ -84,12 +84,12 @@ public:
 
         switch (displayMode) {
             case AQI_SCREEN:
-                oled.setTextSize(1);
-                oled.setCursor(0, 8);
-                oled.printf("AQI Status: %s", IAQ::getAQICategory(aqi));
                 oled.setTextSize(2);
-                oled.setCursor(0, 18);
-                oled.printf("AQI: %d", aqi);
+                oled.setCursor(0, 2);
+                oled.printf("AQI:%d", aqi);
+                oled.setTextSize(1);
+                oled.setCursor(0, 22);
+                oled.printf("Status:%s", IAQ::getAQICategory(aqi));
                 break;
                 
             case PM25_SCREEN:
