@@ -3,14 +3,14 @@
 // -----------------------
 // PM Sensor (Winsen ZH07)
 // -----------------------
-#define ZH07_RX_PIN 32
-#define ZH07_TX_PIN 33
+#define PM_RX_PIN 32
+#define PM_TX_PIN 33
 
 // -----------------------
 // AGS02MA TVOC Sensor
 // -----------------------
-#define AGS_SDA_PIN 26
-#define AGS_SCL_PIN 27
+#define AGS_SDA_PIN 18
+#define AGS_SCL_PIN 19
 
 // -----------------------
 // DHT11 Sensor
@@ -30,3 +30,9 @@
 // Touch Sensor (TTP223B)
 // -----------------------
 #define TOUCH_PIN 4      // Active-low digital input
+
+// -----------------------
+// Battery Sensing (Voltage Divider: 100k + 100k)
+// -----------------------
+#define BATTERY_PIN 34
+#define VOLT_DIVIDER_RATIO 2.0  // Ratio to multiply ADC voltage by

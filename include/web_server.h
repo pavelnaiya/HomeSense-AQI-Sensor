@@ -10,6 +10,7 @@
 #include "tvoc_sensor.h"
 #include "temp_humidity_sensor.h"
 #include "iaq_calculator.h"
+#include "battery_monitor.h"
 
 class WebServerModule {
 private:
@@ -68,13 +69,14 @@ private:
         float temp;
         float hum;
         int aqi;
+        int battery;
     };
 
     // -----------------------------
     // Cloud Upload
     // -----------------------------
     void sendToVercelAPI(int pm1, int pm25, int pm10,
-                         float tvoc, float temp, float hum, int aqi)
+                         float tvoc, float temp, float hum, int aqi, int battery)
     {
         HTTPClient http;
         http.begin(apiEndpoint.c_str());  // Use configurable endpoint
@@ -89,6 +91,7 @@ private:
         doc["humidity"]    = hum;
         doc["aqi"] = aqi;
         doc["aqi_category"] = IAQ::getAQICategory(aqi);
+        doc["battery"] = battery;
 
         String jsonString;
         serializeJson(doc, jsonString);
@@ -146,6 +149,7 @@ public:
             json["humidity"]    = hum;
             json["aqi"] = aqi;
             json["aqi_category"] = IAQ::getAQICategory(aqi);
+            json["battery"] = BatteryMonitor::getPercentage();
 
             String out;
             serializeJson(json, out);
@@ -164,16 +168,48 @@ public:
     // Cloud Upload Loop
     // -----------------------------
     void loop() {
+        static unsigned long lastWiFiCheck = 0;
+        static bool wasConnected = true;
 
+        // Check WiFi status every 5 seconds
+        unsigned long now = millis();
+        if (now - lastWiFiCheck > 5000) {
+            lastWiFiCheck = now;
+            
+            if (WiFi.status() != WL_CONNECTED) {
+                if (wasConnected) {
+                    Serial.println("⚠️ WiFi disconnected! Attempting reconnect...");
+                    wasConnected = false;
+                }
+                
+                // Attempt reconnection
+                WiFi.reconnect();
+                delay(100);
+                
+                if (WiFi.status() == WL_CONNECTED) {
+                    Serial.printf("✅ WiFi reconnected! IP: %s\n", WiFi.localIP().toString().c_str());
+                    wasConnected = true;
+                }
+                return;  // Skip upload this cycle
+            } else {
+                if (!wasConnected) {
+                    Serial.printf("✅ WiFi restored! IP: %s\n", WiFi.localIP().toString().c_str());
+                    wasConnected = true;
+                }
+            }
+        }
+
+        // Skip if not connected
         if (WiFi.status() != WL_CONNECTED)
             return;
 
-        unsigned long now = millis();
+        // Check upload interval
         if (now - lastUploadTime < uploadIntervalMs)
             return;
 
         lastUploadTime = now;
 
+        // Read sensors
         PMData pm;
         pm_sensor.read(pm);
 
@@ -183,10 +219,13 @@ public:
 
         int aqi = IAQ::calculateAQI(pm.pm2_5, pm.pm10);
         aqi = IAQ::adjustAQIWithTVOC(aqi, tvoc);
+        int battery = BatteryMonitor::getPercentage();
+
+        Serial.printf("📤 Uploading data (AQI: %d)...\n", aqi);
 
         if (asyncPost) {
             UploadParams* p = new UploadParams{
-                this, pm.pm1_0, pm.pm2_5, pm.pm10, tvoc, temp, hum, aqi
+                this, pm.pm1_0, pm.pm2_5, pm.pm10, tvoc, temp, hum, aqi, battery
             };
 
             BaseType_t taskCreated = xTaskCreate(
@@ -194,13 +233,13 @@ public:
                     UploadParams* p = (UploadParams*)data;
                     p->self->sendToVercelAPI(
                         p->pm1, p->pm25, p->pm10,
-                        p->tvoc, p->temp, p->hum, p->aqi
+                        p->tvoc, p->temp, p->hum, p->aqi, p->battery
                     );
                     delete p;
                     vTaskDelete(NULL);
                 },
                 "CloudUploadTask",
-                4096,
+                8192,
                 p,
                 1,
                 NULL
@@ -213,7 +252,7 @@ public:
             }
         }
         else {
-            sendToVercelAPI(pm.pm1_0, pm.pm2_5, pm.pm10, tvoc, temp, hum, aqi);
+            sendToVercelAPI(pm.pm1_0, pm.pm2_5, pm.pm10, tvoc, temp, hum, aqi, battery);
         }
     }
 };

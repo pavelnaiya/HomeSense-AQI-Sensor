@@ -9,10 +9,12 @@
 class OLEDDisplay {
 public:
     enum ScreenMode {
-        AQI_ONLY,
-        PM_ONLY,
-        TEMP_HUM_ONLY,
-        TVOC_ONLY,
+        AQI_SCREEN,
+        PM25_SCREEN,
+        PM10_SCREEN,
+        TEMP_SCREEN,
+        HUM_SCREEN,
+        TVOC_SCREEN,
         CYCLE_ALL
     };
 
@@ -55,38 +57,89 @@ public:
         oled.display();
     }
 
-    void show(uint16_t pm25, uint16_t pm10, float temp, float hum, float tvoc, int aqi) {
+    void show(uint16_t pm25, uint16_t pm10, float temp, float hum, float tvoc, int aqi, int batteryPercent) {
         oled.clearDisplay();
+        
+        // Draw Battery at top right
+        drawBattery(batteryPercent);
+        
         oled.setCursor(0, 0);
 
         // Handle auto-cycling
         if (mode == CYCLE_ALL) {
             unsigned long now = millis();
             if ((unsigned long)(now - lastSwitch) >= screenInterval) {
-                currentScreen = (currentScreen + 1) % 4;
+                currentScreen = (currentScreen + 1) % 6;
                 lastSwitch = now;
             }
         }
 
         // Display based on mode or current screen
-        switch (mode == CYCLE_ALL ? currentScreen : mode) {
-            case AQI_ONLY: {
-                const char* category = IAQ::getAQICategory(aqi);
-                oled.printf("AQI: %d %s", aqi, category);
+        int displayMode = (mode == CYCLE_ALL) ? currentScreen : mode;
+        
+        // Centered vertically for Size 2 font (32px height, font is ~16px high)
+        // Cursor Y = 8 puts it perfectly in middle
+        oled.setTextSize(2);
+        oled.setCursor(0, 8);
+
+        switch (displayMode) {
+            case AQI_SCREEN:
+                oled.setTextSize(1);
+                oled.setCursor(0, 8);
+                oled.printf("AQI Status: %s", IAQ::getAQICategory(aqi));
+                oled.setTextSize(2);
+                oled.setCursor(0, 18);
+                oled.printf("AQI: %d", aqi);
                 break;
-            }
-            case PM_ONLY:
-                oled.printf("PM2.5:%d PM10:%d", pm25, pm10);
+                
+            case PM25_SCREEN:
+                oled.printf("PM2.5:%d", pm25);
+                oled.setTextSize(1);
+                oled.setCursor(0, 24);
+                oled.print("ug/m3");
                 break;
-            case TEMP_HUM_ONLY:
-                oled.printf("T:%.1fC H:%.0f%%", temp, hum);
+                
+            case PM10_SCREEN:
+                oled.printf("PM10:%d", pm10);
+                oled.setTextSize(1);
+                oled.setCursor(0, 24);
+                oled.print("ug/m3");
                 break;
-            case TVOC_ONLY:
-                oled.printf("TVOC: %.1f ppb", tvoc);
+                
+            case TEMP_SCREEN:
+                oled.printf("Temp:%.0fC", temp);
+                break;
+                
+            case HUM_SCREEN:
+                oled.printf("Hum:%.0f%%", hum);
+                break;
+                
+            case TVOC_SCREEN:
+                oled.printf("TVOC:%.0f", tvoc);
+                oled.setTextSize(1);
+                oled.setCursor(0, 24);
+                oled.print("PPB");
                 break;
         }
 
         oled.display();
+    }
+
+    void drawBattery(int percent) {
+        oled.setTextSize(1);
+        oled.setTextColor(SSD1306_WHITE);
+        oled.setCursor(95, 0);
+        oled.printf("%d%%", percent);
+        
+        // Simple battery outline
+        oled.drawRect(118, 0, 10, 6, SSD1306_WHITE);
+        oled.drawRect(128, 2, 1, 2, SSD1306_WHITE); // Battery nipple
+        
+        // Fill based on percentage
+        int fillWidth = (percent * 8) / 100;
+        if (fillWidth > 0) {
+            oled.fillRect(119, 1, fillWidth, 4, SSD1306_WHITE);
+        }
     }
 
     // Optional: display all sensor data at once

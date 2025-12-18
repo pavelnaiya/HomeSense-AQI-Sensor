@@ -1,6 +1,8 @@
 #pragma once
+#include <stdlib.h>
 #include <WiFi.h>
 #include <LittleFS.h>
+#include <secrets.h>
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 
@@ -28,7 +30,7 @@ String urlDecode(String str) {
         else if (encodedChar == '%') {
             temp[2] = str.charAt(i++);
             temp[3] = str.charAt(i++);
-            decodedChar = strtol(temp, NULL, 16);
+            decodedChar = strtol(temp, 0, 16);
         }
         else {
             decodedChar = encodedChar;
@@ -47,13 +49,17 @@ WiFiConfig loadWiFiConfig() {
     WiFiConfig cfg;
 
     if (!LittleFS.exists("/wifi.json")) {
-        Serial.println("⚠️ wifi.json missing");
+        Serial.println("⚠️ wifi.json missing, using HARDCODED defaults");
+        cfg.ssid = WIFI_SSID;
+        cfg.pass = WIFI_PASS;
         return cfg;
     }
 
     File file = LittleFS.open("/wifi.json", "r");
     if (!file) {
-        Serial.println("⚠️ Failed to open wifi.json");
+        Serial.println("⚠️ Failed to open wifi.json, using HARDCODED defaults");
+        cfg.ssid = WIFI_SSID;
+        cfg.pass = WIFI_PASS;
         return cfg;
     }
 
@@ -62,7 +68,9 @@ WiFiConfig loadWiFiConfig() {
     file.close();
 
     if (err) {
-        Serial.println("❌ JSON parse failed");
+        Serial.println("❌ JSON parse failed, using HARDCODED defaults");
+        cfg.ssid = WIFI_SSID;
+        cfg.pass = WIFI_PASS;
         return cfg;
     }
 
@@ -142,7 +150,13 @@ void startAPForConfig(OLEDDisplay* display = nullptr) {
     }
     apPassword[8] = '\0';
     
+    // Explicitly configure AP network settings for stability
     WiFi.mode(WIFI_AP);
+    IPAddress local_IP(192, 168, 4, 1);
+    IPAddress gateway(192, 168, 4, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    WiFi.softAPConfig(local_IP, gateway, subnet);
+    
     WiFi.softAP("HomeSense-Setup", apPassword);
 
     Serial.printf("AP IP: %s\n", WiFi.softAPIP().toString().c_str());
@@ -235,10 +249,14 @@ void startAPForConfig(OLEDDisplay* display = nullptr) {
     });
 
     // ==============================
-    // Serve static files from LittleFS
+    // Explicit Root Handler (Fixes loading issues)
     // ==============================
-    apServer->serveStatic("/", LittleFS, "/")
-              .setDefaultFile("setup.html");
+    apServer->on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/setup.html", "text/html");
+    });
+
+    // Serve other static files
+    apServer->serveStatic("/", LittleFS, "/");
 
     // Start server
     apServer->begin();
