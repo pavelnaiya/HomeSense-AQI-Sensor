@@ -167,7 +167,7 @@ public:
     // -----------------------------
     // Cloud Upload Loop
     // -----------------------------
-    void loop() {
+    void loop(const PMData& pm, float tvoc, float temp, float hum, int aqi, int battery) {
         static unsigned long lastWiFiCheck = 0;
         static bool wasConnected = true;
 
@@ -209,23 +209,12 @@ public:
 
         lastUploadTime = now;
 
-        // Read sensors
-        PMData pm;
-        pm_sensor.read(pm);
-
-        float tvoc = tvoc_sensor.readTVOC();
-        float temp = temp_hum_sensor.readTemperature();
-        float hum  = temp_hum_sensor.readHumidity();
-
-        int aqi = IAQ::calculateAQI(pm.pm2_5, pm.pm10);
-        aqi = IAQ::adjustAQIWithTVOC(aqi, tvoc);
-        int battery = BatteryMonitor::getPercentage();
-
+        // Data is now passed in as parameters to avoid redundant/failed sensor reads
         Serial.printf("📤 Uploading data (AQI: %d)...\n", aqi);
 
         if (asyncPost) {
             UploadParams* p = new UploadParams{
-                this, pm.pm1_0, pm.pm2_5, pm.pm10, tvoc, temp, hum, aqi, battery
+                this, (int)pm.pm1_0, (int)pm.pm2_5, (int)pm.pm10, tvoc, temp, hum, aqi, battery
             };
 
             BaseType_t taskCreated = xTaskCreate(

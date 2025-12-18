@@ -7,7 +7,9 @@
 // -----------------------------
 namespace IAQ {
 
-// Breakpoints for PM2.5 (µg/m³) based on US EPA standard
+// ---------------------------------------------------------
+// US EPA 2024 Breakpoints for PM2.5 (µg/m³)
+// ---------------------------------------------------------
 struct PM25Breakpoint {
     float low;
     float high;
@@ -16,15 +18,15 @@ struct PM25Breakpoint {
 };
 
 const PM25Breakpoint PM25_TABLE[] = {
-    {0.0, 12.0, 0, 50},       // Good
-    {12.1, 35.4, 51, 100},    // Moderate
-    {35.5, 55.4, 101, 150},   // Unhealthy for sensitive
-    {55.5, 150.4, 151, 200},  // Unhealthy
-    {150.5, 250.4, 201, 300}, // Very Unhealthy
-    {250.5, 500.0, 301, 500}  // Hazardous
+    {0.0, 9.0, 0, 50},          // Good
+    {9.1, 35.4, 51, 100},       // Moderate
+    {35.5, 55.4, 101, 150},     // Unhealthy for sensitive
+    {55.5, 125.4, 151, 200},    // Unhealthy (Updated 2024)
+    {125.5, 225.4, 201, 300},   // Very Unhealthy (Updated 2024)
+    {225.5, 500.4, 301, 500}    // Hazardous (Updated 2024)
 };
 
-// Breakpoints for PM10 (µg/m³)
+// Breakpoints for PM10 (µg/m³) - Stays largely consistent
 struct PM10Breakpoint {
     float low;
     float high;
@@ -43,37 +45,48 @@ const PM10Breakpoint PM10_TABLE[] = {
 
 // Helper: linear AQI interpolation
 inline int interpolateAQI(float Cp, float Clow, float Chigh, int Ilow, int Ihigh) {
-    return round((Ihigh - Ilow) / (Chigh - Clow) * (Cp - Clow) + Ilow);
+    if (Chigh == Clow) return Ilow;
+    return round((float)(Ihigh - Ilow) / (Chigh - Clow) * (Cp - Clow) + Ilow);
 }
 
 // Calculate numeric AQI based on PM2.5
 inline int calculateAQI_PM25(float pm25) {
-    if (isnan(pm25)) return 0; // treat invalid as 0
+    if (isnan(pm25)) return 0;
+    if (pm25 < 0) return 0;
     for (int i = 0; i < 6; i++) {
-        if (pm25 >= PM25_TABLE[i].low && pm25 <= PM25_TABLE[i].high) {
+        if (pm25 <= PM25_TABLE[i].high) {
             return interpolateAQI(pm25, PM25_TABLE[i].low, PM25_TABLE[i].high,
                                   PM25_TABLE[i].aqiLow, PM25_TABLE[i].aqiHigh);
         }
     }
-    return -1; // out of range
+    return 500;
 }
 
 // Calculate numeric AQI based on PM10
 inline int calculateAQI_PM10(float pm10) {
     if (isnan(pm10)) return 0;
+    if (pm10 < 0) return 0;
     for (int i = 0; i < 6; i++) {
-        if (pm10 >= PM10_TABLE[i].low && pm10 <= PM10_TABLE[i].high) {
+        if (pm10 <= PM10_TABLE[i].high) {
             return interpolateAQI(pm10, PM10_TABLE[i].low, PM10_TABLE[i].high,
                                   PM10_TABLE[i].aqiLow, PM10_TABLE[i].aqiHigh);
         }
     }
-    return -1;
+    return 500;
 }
 
-// Calculate overall AQI from PM2.5 and PM10
+/**
+ * Calculate overall AQI from PM2.5 and PM10
+ * Includes a calibration factor (0.85) to compensate for consumer sensor bias.
+ */
 inline int calculateAQI(float pm25, float pm10) {
-    int aqi25 = calculateAQI_PM25(pm25);
-    int aqi10 = calculateAQI_PM10(pm10);
+    // Calibration factor: 0.85 compensates for over-reading in high humidity/low air flow 
+    // common in budget PMS sensors.
+    float calibratedPM25 = pm25 * 0.85f;
+    float calibratedPM10 = pm10 * 0.85f;
+
+    int aqi25 = calculateAQI_PM25(calibratedPM25);
+    int aqi10 = calculateAQI_PM10(calibratedPM10);
     return max(aqi25, aqi10);
 }
 

@@ -130,10 +130,7 @@ void loop() {
     if (millis() - lastSensorRead > sensorInterval) {
         lastSensorRead = millis();
 
-        // Cloud upload handler
-        web.loop();
-
-        // Read PM sensor
+        // Read sensors
         if (pm_sensor.read(pm)) {
             lastValidPM = pm;
             pmReadFailures = 0;
@@ -155,6 +152,9 @@ void loop() {
 
         // Read battery
         batteryPercent = BatteryMonitor::getPercentage();
+
+        // Cloud upload handler - passing FRESH data
+        web.loop(pm, tvoc, temp, hum, aqi, batteryPercent);
 
         // Serial Log
         Serial.printf(
