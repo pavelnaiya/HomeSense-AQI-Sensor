@@ -43,6 +43,22 @@ void setup() {
     pinMode(TOUCH_PIN, INPUT);
 
     // -----------------------------
+    // Hardware Diagnostic (Hardening)
+    // -----------------------------
+    esp_reset_reason_t reason = esp_reset_reason();
+    Serial.print("🔍 Reset Reason: ");
+    switch (reason) {
+        case ESP_RST_POWERON: Serial.println("Power-on"); break;
+        case ESP_RST_EXT:     Serial.println("External Reset Button"); break;
+        case ESP_RST_SW:      Serial.println("Software Reset"); break;
+        case ESP_RST_PANIC:   Serial.println("Software Crash (Panic)"); break;
+        case ESP_RST_INT_WDT: Serial.println("Hardware Watchdog"); break;
+        case ESP_RST_TASK_WDT:Serial.println("Task Watchdog (Loop Hang)"); break;
+        case ESP_RST_BROWNOUT:Serial.println("⚠️ BROWNOUT (Low Voltage)"); break;
+        default:              Serial.println("Other/Unknown"); break;
+    }
+
+    // -----------------------------
     // Filesystem
     // -----------------------------
     if (!LittleFS.begin(true)) {
@@ -86,9 +102,9 @@ void setup() {
         web.begin(WiFi.SSID().c_str(), WiFi.psk().c_str());
         Serial.println("✅ Web Server Started");
         
-        // Initialize OTA Updater
-        WebUpdater::attach(server);
-        Serial.println("✅ OTA Updater Ready at /update");
+        // Initialize OTA Updater (GitHub Check)
+        WebUpdater::checkAndApplyUpdate();
+        Serial.println("✅ Remote OTA Check Complete");
         
     } else {
         Serial.println("⚠️  WiFi connection failed - Starting AP mode");
@@ -126,6 +142,15 @@ void loop() {
     // Non-blocking timer for sensors (10 seconds)
     static unsigned long lastSensorRead = 0;
     const unsigned long sensorInterval = 10000;
+
+    // Non-blocking timer for OTA check (1 hour)
+    static unsigned long lastOTACheck = millis();
+    const unsigned long otaInterval = 3600000; 
+
+    if (millis() - lastOTACheck > otaInterval) {
+        lastOTACheck = millis();
+        WebUpdater::checkAndApplyUpdate();
+    }
 
     if (millis() - lastSensorRead > sensorInterval) {
         lastSensorRead = millis();

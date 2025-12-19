@@ -1,74 +1,114 @@
 #pragma once
 
 #include <Arduino.h>
-#include <ESPAsyncWebServer.h>
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <Update.h>
-#include <LittleFS.h>
+#include <ArduinoJson.h>
 
+/**
+ * WebUpdater: A reusable GitHub-based OTA updater.
+ */
 class WebUpdater {
 public:
-    static void attach(AsyncWebServer &server) {
-        // ----------------------------------------------------
-        // GET /update -> Serve update.html
-        // ----------------------------------------------------
-        server.serveStatic("/update", LittleFS, "/update.html");
+    // --- Project Configuration ---
+    static constexpr const char* GH_USER = "pavelnaiya";
+    static constexpr const char* GH_REPO = "HomeSense-AQI-Sensor";
+    static constexpr const char* GH_BIN  = "firmware.ino.bin"; 
+    static constexpr const char* VERSION = "1.0.1";
+    // ----------------------------
 
-        // ----------------------------------------------------
-        // POST /update -> Handle File Upload (Actual Endpoint)
-        // ----------------------------------------------------
-        server.on("/update", HTTP_POST, 
-            // Request Handler
-            [](AsyncWebServerRequest *request) {
-                bool success = !Update.hasError();
-                
-                const char* htmlSuccess = R"rawliteral(
-<!DOCTYPE html><html><head><meta http-equiv="refresh" content="3; url=/"><style>body{background:#121212;color:#fff;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;}</style></head>
-<body><h1>Update Success! 🚀</h1><p>Rebooting...</p></body></html>
-)rawliteral";
+    static void checkAndApplyUpdate() {
+        if (WiFi.status() != WL_CONNECTED) return;
 
-                const char* htmlFail = R"rawliteral(
-<!DOCTYPE html><html><head><style>body{background:#121212;color:#ef4444;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center;}</style></head>
-<body><h1>Update Failed! ❌</h1><p>Please try again.</p><br><a href="/update" style="color:#fff">Back</a></body></html>
-)rawliteral";
+        // Construct version URL (Standard GitHub Raw format)
+        String versionUrl = String("https://raw.githubusercontent.com/") + GH_USER + "/" + GH_REPO + "/main/version.json";
 
-                AsyncWebServerResponse *response = request->beginResponse(200, "text/html", success ? htmlSuccess : htmlFail);
-                response->addHeader("Connection", "close");
-                request->send(response);
-                
-                if (success) {
-                    Serial.println("🔄 Update complete. Rebooting...");
-                    delay(100);
-                    ESP.restart();
+        Serial.println("🔍 Checking GitHub for updates...");
+        
+        WiFiClientSecure client;
+        client.setInsecure(); 
+
+        HTTPClient http;
+        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+        
+        if (http.begin(client, versionUrl)) {
+            int httpCode = http.GET();
+            if (httpCode == HTTP_CODE_OK) {
+                String payload = http.getString();
+                StaticJsonDocument<512> doc;
+                DeserializationError error = deserializeJson(doc, payload);
+
+                if (error) {
+                    Serial.println("❌ JSON Parse Failed");
+                    http.end();
+                    return;
                 }
-            },
-            // Upload Handler (Progress)
-            [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-                if (!index) {
-                    Serial.printf("📥 Update Start: %s\n", filename.c_str());
+
+                const char* latestVersion = doc["version"] | "";
+                const char* description = doc["description"] | "No description.";
+
+                Serial.printf("📡 Version: Device [%s] | GitHub [%s]\n", VERSION, latestVersion);
+
+                if (String(latestVersion) != VERSION && String(latestVersion).length() > 0) {
+                    Serial.println("🚀 New version found!");
+                    Serial.printf("📝 Changes: %s\n", description);
                     
-                    // If filename includes "spiffs" or "littlefs", update filesystem
-                    int cmd = (filename.indexOf("littlefs") > -1 || filename.indexOf("spiffs") > -1) 
-                              ? U_SPIFFS : U_FLASH;
-
-                    if (!Update.begin(UPDATE_SIZE_UNKNOWN, cmd)) {
-                         Update.printError(Serial);
-                    }
+                    // Construct binary URL using the new version tag (e.g., v1.0.1)
+                    String tag = String("v") + latestVersion;
+                    String firmwareUrl = String("https://github.com/") + GH_USER + "/" + GH_REPO + "/releases/download/" + tag + "/" + GH_BIN;
+                    
+                    performGitHubUpdate(client, firmwareUrl);
+                } else {
+                    Serial.println("✅ Firmware is already latest.");
                 }
-
-                if (!Update.hasError()) {
-                    if (Update.write(data, len) != len) {
-                        Update.printError(Serial);
-                    }
-                }
-
-                if (final) {
-                    if (Update.end(true)) {
-                        Serial.printf("✅ Update Success: %u bytes\n", index + len);
-                    } else {
-                        Update.printError(Serial);
-                    }
-                }
+            } else {
+                Serial.printf("❌ Failed to fetch version.json (HTTP %d)\n", httpCode);
             }
-        );
+            http.end();
+        }
+    }
+
+private:
+    static void performGitHubUpdate(WiFiClientSecure &client, String url) {
+        HTTPClient http;
+        http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+        
+        Serial.println("📥 Downloading firmware binary...");
+        if (http.begin(client, url)) {
+            int httpCode = http.GET();
+
+            if (httpCode == HTTP_CODE_OK) {
+                int contentLength = http.getSize();
+                if (contentLength > 0) {
+                    Serial.printf("📦 Size: %d bytes. Flashing...\n", contentLength);
+                    
+                    if (Update.begin(contentLength)) {
+                        size_t written = Update.writeStream(*http.getStreamPtr());
+                        if (written == contentLength) {
+                             if (Update.end()) {
+                                Serial.println("🏁 Update SUCCESS! Rebooting...");
+                                delay(2000);
+                                ESP.restart();
+                            } else {
+                                Serial.printf("❌ Flash End Error: %s\n", Update.errorString());
+                            }
+                        } else {
+                            Serial.printf("❌ Write Error: Only %d/%d bytes written\n", written, contentLength);
+                        }
+                    } else {
+                        Serial.println("❌ Update Begin Error: Not enough space");
+                    }
+                } else {
+                    Serial.println("❌ Invalid firmware size");
+                }
+            } else {
+                Serial.printf("❌ Download Failed (HTTP %d)\n", httpCode);
+            }
+            http.end();
+        } else {
+            Serial.println("❌ Failed to connect for download");
+        }
     }
 };
