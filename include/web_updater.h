@@ -16,7 +16,7 @@ public:
     static constexpr const char* GH_USER = "pavelnaiya";
     static constexpr const char* GH_REPO = "HomeSense-AQI-Sensor";
     static constexpr const char* GH_BIN  = "firmware.ino.bin"; 
-    static constexpr const char* VERSION = "1.0.1";
+    static constexpr const char* VERSION = "1.0.2";
     // ----------------------------
 
     static void checkAndApplyUpdate() {
