@@ -3,7 +3,7 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "pm_sensor.h"
-#include "pin_configs.h"
+#include "config.h"
 #include "iaq_calculator.h"
 
 class OLEDDisplay {
@@ -57,37 +57,37 @@ public:
         oled.display();
     }
 
-    void showBootAnimation(const char* version = "1.0.3") {
+    void showBootAnimation(const char* version = FIRMWARE_VERSION) {
         oled.clearDisplay();
         
-        // Step 1: Show "HomeSense" title
+        // Step 1: Show "HomeSense" title (moved up for spacing)
         oled.setTextSize(2);
         oled.setTextColor(SSD1306_WHITE);
-        oled.setCursor(10, 8);
+        oled.setCursor(10, 2);
         oled.print("HomeSense");
         oled.display();
         delay(400);
         
-        // Step 2: Show version info
-        oled.setTextSize(1);
-        oled.setCursor(35, 24);
-        oled.printf("v%s", version);
-        oled.display();
-        delay(400);
-        
-        // Step 3: Animated loading dots (3 dots bouncing)
+        // Step 2: Animated loading dots (3 dots bouncing) - positioned below title
         for (int cycle = 0; cycle < 2; cycle++) {
             for (int i = 0; i < 3; i++) {
-                // Clear all dots
-                oled.fillRect(50, 20, 30, 6, SSD1306_BLACK);
+                // Clear all dots area
+                oled.fillRect(50, 18, 30, 6, SSD1306_BLACK);
                 // Draw dots up to current position
                 for (int j = 0; j <= i; j++) {
-                    oled.fillRect(50 + j * 10, 20, 6, 6, SSD1306_WHITE);
+                    oled.fillRect(50 + j * 10, 18, 6, 6, SSD1306_WHITE);
                 }
                 oled.display();
                 delay(150);
             }
         }
+        
+        // Step 3: Show version info (positioned below dots)
+        oled.setTextSize(1);
+        oled.setCursor(35, 25);
+        oled.printf("v%s", version);
+        oled.display();
+        delay(400);
         
         // Step 4: Progress bar animation
         for (int i = 0; i <= 100; i += 4) {

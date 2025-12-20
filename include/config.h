@@ -1,6 +1,18 @@
 #pragma once
 
 // -----------------------
+// Firmware Version
+// -----------------------
+#define FIRMWARE_VERSION "1.0.4"
+
+// -----------------------
+// GitHub OTA Update Configuration
+// -----------------------
+#define GITHUB_USER "pavelnaiya"
+#define GITHUB_REPO "HomeSense-AQI-Sensor"
+#define GITHUB_BIN_FILENAME "firmware.ino.bin"
+
+// -----------------------
 // PM Sensor (Winsen ZH07)
 // -----------------------
 #define PM_RX_PIN 32
@@ -36,3 +48,4 @@
 // -----------------------
 #define BATTERY_PIN 34
 #define VOLT_DIVIDER_RATIO 2.0  // Ratio to multiply ADC voltage by
+

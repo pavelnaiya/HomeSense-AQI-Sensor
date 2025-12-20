@@ -1,6 +1,6 @@
 #pragma once
 #include <DHT.h>
-#include "pin_configs.h"
+#include "config.h"
 
 class TempHumiditySensor {
 private:

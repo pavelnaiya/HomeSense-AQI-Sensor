@@ -7,17 +7,18 @@
 #include <Update.h>
 #include <ArduinoJson.h>
 #include "oled_display.h"
+#include "config.h"
 
 /**
  * WebUpdater: A reusable GitHub-based OTA updater.
  */
 class WebUpdater {
 public:
-    // --- Project Configuration ---
-    static constexpr const char* GH_USER = "pavelnaiya";
-    static constexpr const char* GH_REPO = "HomeSense-AQI-Sensor";
-    static constexpr const char* GH_BIN  = "firmware.ino.bin"; 
-    static constexpr const char* VERSION = "1.0.3";
+    // --- Project Configuration (from config.h) ---
+    static constexpr const char* GH_USER = GITHUB_USER;
+    static constexpr const char* GH_REPO = GITHUB_REPO;
+    static constexpr const char* GH_BIN  = GITHUB_BIN_FILENAME; 
+    static constexpr const char* VERSION = FIRMWARE_VERSION;
     // ----------------------------
 
     static void checkAndApplyUpdate(OLEDDisplay* display = nullptr) {
@@ -94,7 +95,10 @@ private:
                 if (contentLength > 0) {
                     Serial.printf("📦 Size: %d bytes. Flashing...\n", contentLength);
                     
-                    if (Update.begin(contentLength)) {
+                    // Set partition to OTA_0 (app partition for OTA updates)
+                    if (Update.begin(contentLength, U_FLASH)) {
+                        Serial.println("📝 Starting firmware flash...");
+                        
                         // Stream with progress updates
                         WiFiClient* stream = http.getStreamPtr();
                         size_t written = 0;
@@ -107,6 +111,11 @@ private:
                                 size_t toRead = (available > bufferSize) ? bufferSize : available;
                                 size_t read = stream->readBytes(buffer, toRead);
                                 size_t writtenThisChunk = Update.write(buffer, read);
+                                
+                                if (writtenThisChunk != read) {
+                                    Serial.printf("⚠️ Write mismatch: read %d, wrote %d\n", read, writtenThisChunk);
+                                }
+                                
                                 written += writtenThisChunk;
                                 
                                 // Update progress on display
@@ -114,18 +123,27 @@ private:
                                     int progress = (written * 100) / contentLength;
                                     display->showUpdateAnimation(nullptr, progress);
                                 }
+                                
+                                // Periodic progress to Serial
+                                if (written % 10000 == 0 || written == contentLength) {
+                                    Serial.printf("📊 Progress: %d/%d bytes (%.1f%%)\n", 
+                                                  written, contentLength, (written * 100.0f) / contentLength);
+                                }
                             }
                             delay(1);
                         }
                         
                         if (written == contentLength) {
+                            Serial.println("✅ All bytes written, finalizing update...");
                             if (display) {
                                 display->showUpdateAnimation(nullptr, 100); // Show 100%
                                 delay(500);
                             }
                             
-                            if (Update.end()) {
-                                Serial.println("🏁 Update SUCCESS! Rebooting...");
+                            // Commit the update (true = even if validation fails, commit it)
+                            if (Update.end(true)) {
+                                Serial.println("🏁 Update SUCCESS! Firmware committed.");
+                                Serial.println("🔄 Rebooting in 2 seconds...");
                                 if (display) {
                                     display->showMessage("Update OK!\nRebooting...");
                                 }
@@ -133,15 +151,18 @@ private:
                                 ESP.restart();
                             } else {
                                 Serial.printf("❌ Flash End Error: %s\n", Update.errorString());
+                                Serial.printf("❌ Error code: %u\n", Update.getError());
                                 if (display) {
-                                    display->showMessage("Update FAILED!");
+                                    display->showMessage("Commit Failed!");
                                 }
+                                Update.abort();
                             }
                         } else {
                             Serial.printf("❌ Write Error: Only %d/%d bytes written\n", written, contentLength);
                             if (display) {
                                 display->showMessage("Write Error!");
                             }
+                            Update.abort();
                         }
                     } else {
                         Serial.println("❌ Update Begin Error: Not enough space");

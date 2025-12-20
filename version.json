@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
-  "description": "Fixed battery monitor ADC calibration, updated voltage thresholds for BAK NMC N18650CL-29 battery with TP4056 charging module, and added OLED boot animation.",
+  "version": "1.0.4",
+  "description": "Centralized configuration in config.h, improved firmware update process with proper commit, fixed boot animation spacing, and refactored code structure.",
   "release_date": "2025-01-20"
 }

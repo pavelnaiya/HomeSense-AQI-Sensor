@@ -1,7 +1,7 @@
 #pragma once
 #include <Wire.h>
 #include <Adafruit_AGS02MA.h>
-#include "pin_configs.h"
+#include "config.h"
 
 class TVOCSensor {
 private:

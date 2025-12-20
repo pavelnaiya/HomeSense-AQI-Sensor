@@ -3,7 +3,7 @@
 #include <LittleFS.h>
 #include <esp_task_wdt.h>
 
-#include "pin_configs.h"
+#include "config.h"
 #include "oled_display.h"
 #include "pm_sensor.h"
 #include "tvoc_sensor.h"
@@ -39,6 +39,7 @@ void setup() {
     Serial.println("\n==============================");
     Serial.println("      AQI Monitor Booting     ");
     Serial.println("==============================");
+    Serial.printf("📦 Firmware Version: %s\n", WebUpdater::VERSION);
 
     pinMode(TOUCH_PIN, INPUT);
 

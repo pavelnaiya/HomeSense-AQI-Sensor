@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include "pin_configs.h"
+#include "config.h"
 
 class BatteryMonitor {
 private:
