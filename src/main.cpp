@@ -33,10 +33,18 @@ OLEDDisplay::ScreenMode currentMode = OLEDDisplay::CYCLE_ALL;
 // SETUP
 // ======================================================================
 void setup() {
+    // Initialize Serial early and flush any bootloader garbage
     Serial.begin(115200);
-    delay(200);
-
-    Serial.println("\n==============================");
+    delay(500); // Give serial time to stabilize
+    
+    // Flush any pending data from bootloader
+    while (Serial.available() > 0) {
+        Serial.read();
+    }
+    
+    // Clear screen with newlines and send clear startup message
+    Serial.print("\n\n\n"); // Clear any previous output
+    Serial.println("==============================");
     Serial.println("      AQI Monitor Booting     ");
     Serial.println("==============================");
     Serial.printf("📦 Firmware Version: %s\n", WebUpdater::VERSION);
@@ -69,21 +77,33 @@ void setup() {
     }
 
     // Initialize OLED
-    Serial.print("📺 Initializing OLED Display... ");
     display.begin();
-    display.showBootAnimation(WebUpdater::VERSION);
-    Serial.println("Done");
+    Serial.println("📺 OLED Display initialized");
+    
+    // Check reset reason - skip boot animation if we just restarted (might be in a loop)
+    if (reason == ESP_RST_SW || reason == ESP_RST_PANIC) {
+        // Software reset or panic - might be in restart loop, skip animation
+        Serial.println("⚠️ Software reset detected - skipping boot animation");
+        display.showMessage("Booting...");
+        delay(300);
+    } else {
+        // Normal boot - show animation
+        display.showBootAnimation(WebUpdater::VERSION);
+    }
 
     // Initialize sensors
     Serial.print("📡 Initializing PM Sensor... ");
+    Serial.flush();
     pm_sensor.begin(PM_RX_PIN, PM_TX_PIN);
     Serial.println("Done");
 
     Serial.print("🌡️  Initializing Temp/Humidity Sensor... ");
+    Serial.flush();
     temp_hum_sensor.begin();
     Serial.println("Done");
 
     Serial.print("☁️  Initializing TVOC Sensor... ");
+    Serial.flush();
     if (tvoc_sensor.begin(AGS_SDA_PIN, AGS_SCL_PIN)) {
         Serial.println("Done");
     } else {
@@ -104,8 +124,15 @@ void setup() {
         Serial.println("✅ Web Server Started");
         
         // Initialize OTA Updater (GitHub Check)
-        WebUpdater::checkAndApplyUpdate(&display);
-        Serial.println("✅ Remote OTA Check Complete");
+        // Skip OTA check if we just had a software reset (might be in restart loop)
+        if (reason == ESP_RST_SW || reason == ESP_RST_PANIC) {
+            Serial.println("⚠️ Skipping OTA check (software reset detected - possible restart loop)");
+            Serial.println("✅ Continuing with normal operation");
+        } else {
+            Serial.println("🔍 Starting OTA check...");
+            WebUpdater::checkAndApplyUpdate(&display);
+            Serial.println("✅ Remote OTA Check Complete");
+        }
         
     } else {
         Serial.println("⚠️  WiFi connection failed - Starting AP mode");

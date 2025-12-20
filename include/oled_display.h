@@ -82,20 +82,21 @@ public:
             }
         }
         
-        // Step 3: Show version info (positioned below dots)
+        // Step 3: Show version info (positioned below dots, above progress bar)
+        // OLED is 128x32, so y goes from 0-31. Text size 1 is ~8 pixels tall.
         oled.setTextSize(1);
-        oled.setCursor(35, 25);
+        oled.setCursor(35, 22); // y=22 gives space above progress bar (y=30-31)
         oled.printf("v%s", version);
         oled.display();
         delay(400);
         
-        // Step 4: Progress bar animation
+        // Step 4: Progress bar animation (at the very bottom: rows 30-31 of 32-pixel display)
         for (int i = 0; i <= 100; i += 4) {
-            oled.fillRect(0, 28, 128, 4, SSD1306_BLACK); // Clear progress bar
-            oled.drawRect(0, 28, 128, 4, SSD1306_WHITE); // Draw border
+            oled.fillRect(0, 30, 128, 2, SSD1306_BLACK); // Clear progress bar area at bottom (y=30-31)
+            oled.drawRect(0, 30, 128, 2, SSD1306_WHITE); // Draw border at very bottom
             int barWidth = (i * 126) / 100; // 126 to account for border
             if (barWidth > 0) {
-                oled.fillRect(1, 29, barWidth, 2, SSD1306_WHITE); // Fill progress
+                oled.fillRect(1, 30, barWidth, 1, SSD1306_WHITE); // Fill progress at very bottom
             }
             oled.display();
             delay(25);

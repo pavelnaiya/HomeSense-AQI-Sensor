@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
-  "description": "Centralized configuration in config.h, improved firmware update process with proper commit, fixed boot animation spacing, and refactored code structure.",
+  "version": "1.0.5",
+  "description": "Fixed restart loop issue, improved boot animation layout, added reset reason detection to prevent update loops, and enhanced serial output stability.",
   "release_date": "2025-01-20"
 }

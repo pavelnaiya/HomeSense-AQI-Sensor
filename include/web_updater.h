@@ -22,28 +22,42 @@ public:
     // ----------------------------
 
     static void checkAndApplyUpdate(OLEDDisplay* display = nullptr) {
-        if (WiFi.status() != WL_CONNECTED) return;
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("⚠️ WiFi not connected - skipping OTA check");
+            if (display) {
+                display->showMessage("WiFi Off\nNo Update");
+            }
+            return;
+        }
 
         // Construct version URL (Standard GitHub Raw format)
         String versionUrl = String("https://raw.githubusercontent.com/") + GH_USER + "/" + GH_REPO + "/main/version.json";
 
         Serial.println("🔍 Checking GitHub for updates...");
+        Serial.printf("📡 Current device version: %s\n", VERSION);
+        Serial.printf("🔗 Checking: %s\n", versionUrl.c_str());
         
         WiFiClientSecure client;
         client.setInsecure(); 
 
         HTTPClient http;
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
+        http.setTimeout(10000); // 10 second timeout
         
         if (http.begin(client, versionUrl)) {
             int httpCode = http.GET();
+            Serial.printf("📥 HTTP Response Code: %d\n", httpCode);
+            
             if (httpCode == HTTP_CODE_OK) {
                 String payload = http.getString();
+                Serial.printf("📦 Received payload: %s\n", payload.c_str());
+                
                 StaticJsonDocument<512> doc;
                 DeserializationError error = deserializeJson(doc, payload);
 
                 if (error) {
-                    Serial.println("❌ JSON Parse Failed");
+                    Serial.printf("❌ JSON Parse Failed: %s\n", error.c_str());
+                    Serial.printf("❌ Payload was: %s\n", payload.c_str());
                     http.end();
                     return;
                 }
@@ -51,7 +65,10 @@ public:
                 const char* latestVersion = doc["version"] | "";
                 const char* description = doc["description"] | "No description.";
 
-                Serial.printf("📡 Version: Device [%s] | GitHub [%s]\n", VERSION, latestVersion);
+                Serial.printf("📡 Version Comparison:\n");
+                Serial.printf("   Device: [%s]\n", VERSION);
+                Serial.printf("   GitHub: [%s]\n", latestVersion);
+                Serial.printf("   Match: %s\n", (String(latestVersion) == VERSION) ? "YES" : "NO");
 
                 if (String(latestVersion) != VERSION && String(latestVersion).length() > 0) {
                     Serial.println("🚀 New version found!");
@@ -65,15 +82,26 @@ public:
                     // Construct binary URL using the new version tag (e.g., v1.0.1)
                     String tag = String("v") + latestVersion;
                     String firmwareUrl = String("https://github.com/") + GH_USER + "/" + GH_REPO + "/releases/download/" + tag + "/" + GH_BIN;
+                    Serial.printf("🔗 Firmware URL: %s\n", firmwareUrl.c_str());
                     
                     performGitHubUpdate(client, firmwareUrl, display);
                 } else {
-                    Serial.println("✅ Firmware is already latest.");
+                    if (String(latestVersion).length() == 0) {
+                        Serial.println("⚠️ Empty version string from GitHub");
+                    } else {
+                        Serial.println("✅ Firmware is already latest.");
+                    }
                 }
             } else {
                 Serial.printf("❌ Failed to fetch version.json (HTTP %d)\n", httpCode);
+                String errorPayload = http.getString();
+                if (errorPayload.length() > 0) {
+                    Serial.printf("❌ Error response: %s\n", errorPayload.c_str());
+                }
             }
             http.end();
+        } else {
+            Serial.println("❌ Failed to begin HTTP connection");
         }
     }
 
