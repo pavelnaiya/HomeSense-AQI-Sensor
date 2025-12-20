@@ -70,7 +70,7 @@ void setup() {
     // Initialize OLED
     Serial.print("📺 Initializing OLED Display... ");
     display.begin();
-    display.showMessage("HomeSense\nBooting...");
+    display.showBootAnimation(WebUpdater::VERSION);
     Serial.println("Done");
 
     // Initialize sensors
@@ -103,7 +103,7 @@ void setup() {
         Serial.println("✅ Web Server Started");
         
         // Initialize OTA Updater (GitHub Check)
-        WebUpdater::checkAndApplyUpdate();
+        WebUpdater::checkAndApplyUpdate(&display);
         Serial.println("✅ Remote OTA Check Complete");
         
     } else {
@@ -149,7 +149,7 @@ void loop() {
 
     if (millis() - lastOTACheck > otaInterval) {
         lastOTACheck = millis();
-        WebUpdater::checkAndApplyUpdate();
+        WebUpdater::checkAndApplyUpdate(&display);
     }
 
     if (millis() - lastSensorRead > sensorInterval) {

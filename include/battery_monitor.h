@@ -5,7 +5,6 @@
 class BatteryMonitor {
 private:
     static constexpr float EMA_ALPHA = 0.2f; // Smoothing factor (0.1 to 0.3 is good)
-    static inline float _smoothedVoltage = -1.0f;
     
     // ADC calibration factor: measured voltage / calculated voltage
     // To calibrate:
@@ -14,7 +13,7 @@ private:
     // 3. Calibration factor = measured_voltage / calculated_voltage
     // Example: If multimeter shows 2.08V but ADC calculates 1.8875V,
     //          then ADC_CALIBRATION = 2.08 / 1.8875 = 1.102
-    // For your case (2.08V measured at pin, battery 4.26V):
+    // For BAK NMC N18650CL-29 battery (2.08V measured at pin, battery 4.26V):
     // - Expected at pin: 4.26V / 2 = 2.13V
     // - Actual at pin: 2.08V (slight difference, possibly resistor tolerance)
     // - If code shows 50%, it's calculating ~3.775V battery (~1.8875V at pin)
@@ -23,6 +22,9 @@ private:
 
 public:
     static float readVoltage() {
+        // Function-local static variable for smoothed voltage (avoids C++17 inline requirement)
+        static float smoothedVoltage = -1.0f;
+        
         // Multi-sampling: Read 64 samples to average out high-frequency noise
         long sum = 0;
         const int samples = 64;
@@ -45,26 +47,34 @@ public:
         float currentVoltage = voltageAtPin * VOLT_DIVIDER_RATIO;
 
         // Apply Exponential Moving Average (EMA) to filter out jumps from voltage sag
-        if (_smoothedVoltage < 0) {
-            _smoothedVoltage = currentVoltage; // First reading
+        if (smoothedVoltage < 0) {
+            smoothedVoltage = currentVoltage; // First reading
         } else {
-            _smoothedVoltage = (currentVoltage * EMA_ALPHA) + (_smoothedVoltage * (1.0f - EMA_ALPHA));
+            smoothedVoltage = (currentVoltage * EMA_ALPHA) + (smoothedVoltage * (1.0f - EMA_ALPHA));
         }
 
-        return _smoothedVoltage;
+        return smoothedVoltage;
     }
 
     static int getPercentage() {
         float voltage = readVoltage();
         
-        // Li-ion Discharge curve (Typical 18650/3.7V cell)
-        // 4.2V = 100% (fully charged), 3.0V = 0% (fully discharged)
-        // Using 3.3V as safe cutoff to prevent over-discharge
-        if (voltage >= 4.20f) return 100;
-        if (voltage <= 3.30f) return 0;
+        // BAK NMC N18650CL-29 3.6V 2900mAh Li-ion battery with TP4056 charging module
+        // TP4056 Protection Circuit Specifications:
+        // - Over-discharge protection: 2.4V ± 100mV (battery cuts off)
+        // - Over-discharge release: 3.0V ± 100mV (battery becomes usable again)
+        // - Charging voltage: 4.2V ± 1% (standard full charge)
+        // - Overcharge protection: 4.3V ± 50mV (protection activates)
+        // Battery specs: 4.2V fully charged, 2.5V fully discharged (absolute minimum)
         
-        // Map 3.3V -> 4.2V to 0% -> 100%
-        float percent = (voltage - 3.30f) / (4.20f - 3.30f) * 100.0f;
+        // 100% = 4.2V (standard full charge), allow up to 4.3V (overcharge protection limit)
+        if (voltage >= 4.20f) return 100;
+        // 0% = 3.0V (over-discharge release voltage - battery usable again after protection)
+        if (voltage <= 3.00f) return 0;
+        
+        // Map 3.0V -> 4.2V to 0% -> 100%
+        // Linear mapping (actual discharge curve is slightly non-linear, but this is a good approximation)
+        float percent = (voltage - 3.00f) / (4.20f - 3.00f) * 100.0f;
         
         // Clamp result
         if (percent > 100) percent = 100;

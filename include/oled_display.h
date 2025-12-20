@@ -57,6 +57,53 @@ public:
         oled.display();
     }
 
+    void showBootAnimation(const char* version = "1.0.3") {
+        oled.clearDisplay();
+        
+        // Step 1: Show "HomeSense" title
+        oled.setTextSize(2);
+        oled.setTextColor(SSD1306_WHITE);
+        oled.setCursor(10, 8);
+        oled.print("HomeSense");
+        oled.display();
+        delay(400);
+        
+        // Step 2: Show version info
+        oled.setTextSize(1);
+        oled.setCursor(35, 24);
+        oled.printf("v%s", version);
+        oled.display();
+        delay(400);
+        
+        // Step 3: Animated loading dots (3 dots bouncing)
+        for (int cycle = 0; cycle < 2; cycle++) {
+            for (int i = 0; i < 3; i++) {
+                // Clear all dots
+                oled.fillRect(50, 20, 30, 6, SSD1306_BLACK);
+                // Draw dots up to current position
+                for (int j = 0; j <= i; j++) {
+                    oled.fillRect(50 + j * 10, 20, 6, 6, SSD1306_WHITE);
+                }
+                oled.display();
+                delay(150);
+            }
+        }
+        
+        // Step 4: Progress bar animation
+        for (int i = 0; i <= 100; i += 4) {
+            oled.fillRect(0, 28, 128, 4, SSD1306_BLACK); // Clear progress bar
+            oled.drawRect(0, 28, 128, 4, SSD1306_WHITE); // Draw border
+            int barWidth = (i * 126) / 100; // 126 to account for border
+            if (barWidth > 0) {
+                oled.fillRect(1, 29, barWidth, 2, SSD1306_WHITE); // Fill progress
+            }
+            oled.display();
+            delay(25);
+        }
+        
+        delay(200);
+    }
+
     void show(uint16_t pm25, uint16_t pm10, float temp, float hum, float tvoc, int aqi, int batteryPercent) {
         oled.clearDisplay();
         
@@ -152,6 +199,53 @@ public:
         oled.printf("Hum   : %.0f %%\n", hum);
         oled.printf("IAQ   : %d\n", aqi);
         if (aqiCategory) oled.printf("%s\n", aqiCategory);
+        oled.display();
+    }
+
+    // Firmware update animation
+    void showUpdateAnimation(const char* newVersion = nullptr, int progress = -1) {
+        oled.clearDisplay();
+        
+        // Title
+        oled.setTextSize(1);
+        oled.setTextColor(SSD1306_WHITE);
+        oled.setCursor(20, 0);
+        oled.print("FIRMWARE UPDATE");
+        oled.display();
+        
+        // Version info if provided
+        if (newVersion) {
+            oled.setCursor(25, 10);
+            oled.setTextSize(1);
+            oled.printf("v%s", newVersion);
+        }
+        
+        // Progress bar (if progress >= 0)
+        if (progress >= 0 && progress <= 100) {
+            oled.drawRect(10, 20, 108, 8, SSD1306_WHITE);
+            int barWidth = (progress * 106) / 100; // 106 to account for border
+            if (barWidth > 0) {
+                oled.fillRect(11, 21, barWidth, 6, SSD1306_WHITE);
+            }
+            // Show percentage
+            oled.setCursor(50, 22);
+            oled.setTextColor(SSD1306_BLACK, SSD1306_WHITE); // Inverted text
+            oled.printf("%d%%", progress);
+            oled.setTextColor(SSD1306_WHITE); // Reset
+        } else {
+            // Animated dots while waiting
+            static int dotPos = 0;
+            oled.setCursor(45, 22);
+            for (int i = 0; i < 3; i++) {
+                if (i == dotPos) {
+                    oled.print("O");
+                } else {
+                    oled.print(".");
+                }
+            }
+            dotPos = (dotPos + 1) % 3;
+        }
+        
         oled.display();
     }
 };

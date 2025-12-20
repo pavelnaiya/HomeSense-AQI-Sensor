@@ -6,6 +6,7 @@
 #include <WiFiClientSecure.h>
 #include <Update.h>
 #include <ArduinoJson.h>
+#include "oled_display.h"
 
 /**
  * WebUpdater: A reusable GitHub-based OTA updater.
@@ -16,10 +17,10 @@ public:
     static constexpr const char* GH_USER = "pavelnaiya";
     static constexpr const char* GH_REPO = "HomeSense-AQI-Sensor";
     static constexpr const char* GH_BIN  = "firmware.ino.bin"; 
-    static constexpr const char* VERSION = "1.0.2";
+    static constexpr const char* VERSION = "1.0.3";
     // ----------------------------
 
-    static void checkAndApplyUpdate() {
+    static void checkAndApplyUpdate(OLEDDisplay* display = nullptr) {
         if (WiFi.status() != WL_CONNECTED) return;
 
         // Construct version URL (Standard GitHub Raw format)
@@ -55,11 +56,16 @@ public:
                     Serial.println("🚀 New version found!");
                     Serial.printf("📝 Changes: %s\n", description);
                     
+                    // Show update animation on display
+                    if (display) {
+                        display->showUpdateAnimation(latestVersion, -1);
+                    }
+                    
                     // Construct binary URL using the new version tag (e.g., v1.0.1)
                     String tag = String("v") + latestVersion;
                     String firmwareUrl = String("https://github.com/") + GH_USER + "/" + GH_REPO + "/releases/download/" + tag + "/" + GH_BIN;
                     
-                    performGitHubUpdate(client, firmwareUrl);
+                    performGitHubUpdate(client, firmwareUrl, display);
                 } else {
                     Serial.println("✅ Firmware is already latest.");
                 }
@@ -71,11 +77,15 @@ public:
     }
 
 private:
-    static void performGitHubUpdate(WiFiClientSecure &client, String url) {
+    static void performGitHubUpdate(WiFiClientSecure &client, String url, OLEDDisplay* display = nullptr) {
         HTTPClient http;
         http.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
         
         Serial.println("📥 Downloading firmware binary...");
+        if (display) {
+            display->showUpdateAnimation(nullptr, 0); // Show 0% progress
+        }
+        
         if (http.begin(client, url)) {
             int httpCode = http.GET();
 
@@ -85,30 +95,78 @@ private:
                     Serial.printf("📦 Size: %d bytes. Flashing...\n", contentLength);
                     
                     if (Update.begin(contentLength)) {
-                        size_t written = Update.writeStream(*http.getStreamPtr());
+                        // Stream with progress updates
+                        WiFiClient* stream = http.getStreamPtr();
+                        size_t written = 0;
+                        const size_t bufferSize = 512;
+                        uint8_t buffer[bufferSize];
+                        
+                        while (http.connected() && (written < contentLength)) {
+                            size_t available = stream->available();
+                            if (available) {
+                                size_t toRead = (available > bufferSize) ? bufferSize : available;
+                                size_t read = stream->readBytes(buffer, toRead);
+                                size_t writtenThisChunk = Update.write(buffer, read);
+                                written += writtenThisChunk;
+                                
+                                // Update progress on display
+                                if (display && contentLength > 0) {
+                                    int progress = (written * 100) / contentLength;
+                                    display->showUpdateAnimation(nullptr, progress);
+                                }
+                            }
+                            delay(1);
+                        }
+                        
                         if (written == contentLength) {
-                             if (Update.end()) {
+                            if (display) {
+                                display->showUpdateAnimation(nullptr, 100); // Show 100%
+                                delay(500);
+                            }
+                            
+                            if (Update.end()) {
                                 Serial.println("🏁 Update SUCCESS! Rebooting...");
+                                if (display) {
+                                    display->showMessage("Update OK!\nRebooting...");
+                                }
                                 delay(2000);
                                 ESP.restart();
                             } else {
                                 Serial.printf("❌ Flash End Error: %s\n", Update.errorString());
+                                if (display) {
+                                    display->showMessage("Update FAILED!");
+                                }
                             }
                         } else {
                             Serial.printf("❌ Write Error: Only %d/%d bytes written\n", written, contentLength);
+                            if (display) {
+                                display->showMessage("Write Error!");
+                            }
                         }
                     } else {
                         Serial.println("❌ Update Begin Error: Not enough space");
+                        if (display) {
+                            display->showMessage("No Space!");
+                        }
                     }
                 } else {
                     Serial.println("❌ Invalid firmware size");
+                    if (display) {
+                        display->showMessage("Invalid Size!");
+                    }
                 }
             } else {
                 Serial.printf("❌ Download Failed (HTTP %d)\n", httpCode);
+                if (display) {
+                    display->showMessage("Download Failed!");
+                }
             }
             http.end();
         } else {
             Serial.println("❌ Failed to connect for download");
+            if (display) {
+                display->showMessage("Connect Failed!");
+            }
         }
     }
 };
